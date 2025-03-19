@@ -1,15 +1,13 @@
 ## OFT Initia Example
 
 ### Before you begin
-The following pairs may exist:
+The following is a guide for deploying OFT pairs and wiring them to Initia:
 
 EVM / Initia
 - `NativeOFTAdapter (ETH)` / `OFT`
 - `OFTAdapter (WETH)` / `OFT`
 - `OFT` / `OFTAdapter (uinit)`
 - `OFT` / `OFT`
-
-The following is a guide for deploying OFT's and wiring them to Initia.
 
 ## Setup and Installation
 
