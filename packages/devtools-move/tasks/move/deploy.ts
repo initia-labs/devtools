@@ -22,7 +22,8 @@ async function deployMovementContracts(
     addressName: string,
     namedAddresses: string,
     chainName: string,
-    stage: string
+    stage: string,
+    packagePath: string
 ) {
     let cmd = ''
     let args: string[] = []
@@ -43,7 +44,7 @@ async function deployMovementContracts(
             'move',
             'deploy-object',
             addressName,
-            `-p=${process.cwd()}`,
+            `-p=${process.cwd()}/${packagePath}`,
             `--named-addresses=${namedAddresses}`,
             `--node=${getInitiaRPCUrl()}`,
             `--from=${userAccountName}`,
@@ -153,7 +154,8 @@ async function deploy(
     taskContext: DeployTaskContext,
     addressName: string,
     forceDeploy: boolean = false,
-    namedAddresses: string
+    namedAddresses: string,
+    packagePath: string
 ) {
     const deploymentExists = await checkIfDeploymentExists(
         taskContext.chain,
@@ -172,7 +174,8 @@ async function deploy(
                 addressName,
                 namedAddresses,
                 taskContext.chain,
-                taskContext.stage
+                taskContext.stage,
+                packagePath
             )
 
             if (taskContext.chain === 'initia') {
@@ -190,7 +193,8 @@ async function deploy(
             addressName,
             namedAddresses,
             taskContext.chain,
-            taskContext.stage
+            taskContext.stage,
+            packagePath
         )
 
         if (taskContext.chain === 'initia') {

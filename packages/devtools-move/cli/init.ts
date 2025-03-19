@@ -8,6 +8,7 @@ import { NewOperation as MoveTransferObjectOwnerOperation } from './operations/t
 import { NewOperation as EVMWireOperation } from './operations/evm-wire'
 import { NewOperation as EVMQuoteSendOperation } from './operations/evm-quote-send'
 import { NewOperation as EVMSendOperation } from './operations/evm-send'
+import { NewOperation as EVMSendNativeOperation } from './operations/evm-send-native'
 import { NewOperation as EVMTransactionParserOperation } from './operations/evm-transaction-parser'
 
 export async function attach_wire_move(sdk: AptosEVMCLI) {
@@ -23,5 +24,6 @@ export async function attach_wire_evm(sdk: AptosEVMCLI) {
     await sdk.extendOperation(EVMWireOperation)
     await sdk.extendOperation(EVMQuoteSendOperation)
     await sdk.extendOperation(EVMSendOperation)
+    await sdk.extendOperation(EVMSendNativeOperation)
     await sdk.extendOperation(EVMTransactionParserOperation)
 }

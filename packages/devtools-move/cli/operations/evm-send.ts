@@ -101,6 +101,26 @@ async function sendOFT(args: any): Promise<MessagingFee> {
     console.log('\t🏦 Native fee:', fee.nativeFee.toString())
     console.log('\t🪙 LZ token fee:', fee.lzTokenFee.toString())
 
+    const approvalRequired = await oft.approvalRequired()
+    if (approvalRequired) {
+        const ERC20ABI = [
+            'function approve(address _spender, uint256 _value) public returns (bool success)',
+            'function allowance(address _owner, address _spender) public view returns (uint256 remaining)',
+        ]
+        const tokenAddress = await oft.token()
+        const erc20Token = new ethers.Contract(tokenAddress, ERC20ABI, oft.signer)
+
+        const allowance = await erc20Token.allowance(await oft.signer.getAddress(), oft.address)
+        if (allowance < amount) {
+            console.log('\n🔑 Approval required for OFT')
+
+            const approvalTxResponse = await erc20Token.approve(oft.address, amount)
+            const approvalTxReceipt = await approvalTxResponse.wait()
+            console.log(`\nApproved: ${amount} units`)
+            console.log(`\t🔑 Hash: ${approvalTxReceipt.transactionHash}`)
+        }
+    }
+
     const tx = await oft.send(sendParam, fee, refundAddress, {
         value: fee.nativeFee,
     })

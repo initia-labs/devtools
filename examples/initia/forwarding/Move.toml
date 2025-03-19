@@ -1,0 +1,48 @@
+[package]
+name = "forwarding"
+version = "1.0.0"
+authors = []
+
+[addresses]
+deployer = "_"
+forwarding = "_"
+oft = "_"
+
+# refer packages/devtools-move/tasks/move/utils/deploymentAddresses.json
+worker_peripherals = "_"
+oft_common = "_"
+oft_admin = "_"
+router_node_0 = "_"
+simple_msglib = "_"
+blocked_msglib = "_"
+uln_302 = "_"
+router_node_1 = "_"
+endpoint_v2_common = "_"
+endpoint_v2 = "_"
+msglib_types = "_"
+treasury = "_"
+layerzero_treasury_admin = "_"
+layerzero_admin = "_"
+worker_common = "_"
+executor_fee_lib_router_0 = "_"
+executor_fee_lib_router_1 = "_"
+dvn_fee_lib_router_0 = "_"
+dvn_fee_lib_router_1 = "_"
+executor_fee_lib_0 = "_"
+dvn_fee_lib_0 = "_"
+dvn = "_"
+price_feed_router_0 = "_"
+price_feed_router_1 = "_"
+price_feed_module_0 = "_"
+native_token_metadata_address = "_"
+
+[dependencies.InitiaStdlib]
+git = "https://github.com/initia-labs/move-natives.git"
+rev = "77d5f3e140143bdaa41f850115b3035c134193e3"
+subdir = "initia_stdlib"
+
+[dependencies]
+endpoint_v2_common = { git = "https://github.com/LayerZero-Labs/LayerZero-v2", rev = "372abacbf09a8b2a972785bc69c8fcbeea77141f", subdir = "packages/layerzero-v2/initia/contracts/endpoint_v2_common" }
+endpoint_v2 = { git = "https://github.com/LayerZero-Labs/LayerZero-v2", rev = "372abacbf09a8b2a972785bc69c8fcbeea77141f", subdir = "packages/layerzero-v2/initia/contracts/endpoint_v2" }
+oft_common = { git = "https://github.com/LayerZero-Labs/LayerZero-v2", rev = "372abacbf09a8b2a972785bc69c8fcbeea77141f", subdir = "packages/layerzero-v2/initia/contracts/oapps/oft_common" }
+oft = { local = "../move-oft"}

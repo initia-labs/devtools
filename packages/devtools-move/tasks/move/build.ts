@@ -12,9 +12,15 @@ let stdErr = ''
  * @dev Wraps the aptos move build command
  * @returns Promise<void>
  */
-async function buildMovementContracts(namedAddresses: string, chain: string, stage: string, aptosCommand: string) {
+async function buildMovementContracts(
+    namedAddresses: string,
+    chain: string,
+    stage: string,
+    aptosCommand: string,
+    packagePath: string
+) {
     const cmd = aptosCommand
-    const args = ['move', 'build', `--named-addresses=${namedAddresses}`]
+    const args = ['move', 'build', `--named-addresses=${namedAddresses}`, `-p=${process.cwd()}/${packagePath}`]
 
     return new Promise<void>((resolve, reject) => {
         const childProcess = spawn(cmd, args, {
@@ -53,14 +59,14 @@ async function buildMovementContracts(namedAddresses: string, chain: string, sta
     })
 }
 
-async function build(taskContext: DeployTaskContext, forceBuild: boolean, namedAddresses: string) {
+async function build(taskContext: DeployTaskContext, forceBuild: boolean, namedAddresses: string, packagePath: string) {
     const aptosCommand = await getCLICmd(taskContext.chain, taskContext.stage)
 
     const buildPath = path.join(process.cwd(), 'build', taskContext.selectedContract.contract.contractName ?? '')
 
     if (!fs.existsSync(buildPath) || forceBuild) {
         console.log('Building contracts\n')
-        await buildMovementContracts(namedAddresses, taskContext.chain, taskContext.stage, aptosCommand)
+        await buildMovementContracts(namedAddresses, taskContext.chain, taskContext.stage, aptosCommand, packagePath)
     } else {
         console.log('Skipping build - built modules already exist at: ', buildPath)
     }

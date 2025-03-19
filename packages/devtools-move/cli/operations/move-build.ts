@@ -18,6 +18,13 @@ class MoveBuildOperation implements INewOperation {
                 required: false,
             },
         },
+        {
+            name: '--move-package',
+            arg: {
+                help: 'The path to the Move package to deploy. If not provided, the default Move package will be used.',
+                required: false,
+            },
+        },
     ]
     async impl(args: any): Promise<void> {
         const taskContext = await initializeDeployTaskContext(args.oapp_config)
@@ -31,7 +38,7 @@ class MoveBuildOperation implements INewOperation {
             taskContext.selectedContract
         )
 
-        await build(taskContext, forceBuild, named_addresses)
+        await build(taskContext, forceBuild, named_addresses, args.move_package)
     }
 }
 

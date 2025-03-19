@@ -34,6 +34,13 @@ class MoveDeployOperation implements INewOperation {
                 required: false,
             },
         },
+        {
+            name: '--move-package',
+            arg: {
+                help: 'The path to the Move package to deploy. If not provided, the default Move package will be used.',
+                required: false,
+            },
+        },
     ]
 
     async impl(args: any): Promise<void> {
@@ -47,7 +54,8 @@ class MoveDeployOperation implements INewOperation {
             moveTomlAdminName,
             deployTaskContext.selectedContract
         )
-        await deploy(deployTaskContext, args.address_name, forceDeploy, namedAddresses)
+
+        await deploy(deployTaskContext, args.address_name, forceDeploy, namedAddresses, args.move_package)
 
         if (deployTaskContext.chain == 'initia') {
             // rest for 2 seconds to allow for the initia chain to update before setting the delegate

@@ -3,6 +3,7 @@ export * from './init'
 // EVM Operations
 export { NewOperation as EVMQuoteSendOperation } from './operations/evm-quote-send'
 export { NewOperation as EVMSendOperation } from './operations/evm-send'
+export { NewOperation as EVMSendNativeOperation } from './operations/evm-send-native'
 export { NewOperation as EVMTransactionParserOperation } from './operations/evm-transaction-parser'
 export { NewOperation as EVMWireOperation } from './operations/evm-wire'
 
