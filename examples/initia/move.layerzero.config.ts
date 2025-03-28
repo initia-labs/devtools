@@ -10,7 +10,7 @@ enum MsgType {
 
 const ethContract: OmniPointHardhat = {
     eid: EndpointId.ETHEREUM_V2_MAINNET,
-    contractName: 'MyOFTAdapter',
+    contractName: 'MyNativeOFTAdapter',
 }
 
 const initiaContract: OmniPointHardhat = {
@@ -30,8 +30,8 @@ const config: OAppOmniGraphHardhat = {
         {
             contract: initiaContract,
             config: {
-                delegate: '0x0BD516796ECF8246F0702BAE478A559A18B75B91',
-                owner: '0x0BD516796ECF8246F0702BAE478A559A18B75B91',
+                delegate: '0x4F0D8F7C2C107F0EFBCF3736178ED32182DF88C7',
+                owner: '0x4F0D8F7C2C107F0EFBCF3736178ED32182DF88C7',
             },
         },
     ],

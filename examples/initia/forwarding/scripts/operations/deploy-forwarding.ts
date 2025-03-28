@@ -436,14 +436,12 @@ async function checkDeployerContractExist(deployerAddr: string): Promise<boolean
         childProcess.stdout?.on('data', (data) => {
             const dataStr = data.toString()
             stdOut += dataStr
-            process.stdout.write(`${dataStr}`)
         })
 
         // Capture stderr (this is actually NOT the error output but the interactive prompt)
         childProcess.stderr?.on('data', (data) => {
             const dataStr = data.toString()
             stdErr += dataStr
-            process.stderr.write(`${dataStr}`)
         })
 
         // Handle process close
