@@ -139,7 +139,7 @@ async function sendOFT(args: any, moveOFTAddr: string, forwardingAddr: string): 
     const options = Options.newOptions().addExecutorLzReceiveOption(500_000).addExecutorComposeOption(0, 800_000)
     let composerPayload: string
     if (opBridgeId) {
-        composerPayload = await buildComposerMessage(moveOFTAddr, fromAddress, to, opBridgeId, amount)
+        composerPayload = await buildOPBridgeComposerMessage(moveOFTAddr, fromAddress, to, opBridgeId, amount)
     } else if (ibcChannel) {
         composerPayload = await buildComposerMessage(moveOFTAddr, fromAddress, to, ibcChannel, amount)
     } else {
@@ -191,6 +191,37 @@ export type SendParam = {
 export type MessagingFee = {
     nativeFee: bigint
     lzTokenFee: bigint
+}
+
+export async function buildOPBridgeComposerMessage(
+    moveOFTAddr: string,
+    fromAddr: string,
+    receiverAddr: string,
+    opBridgeId: string,
+    amount: string
+): Promise<string> {
+    const amountSD = ethers.BigNumber.from(amount).div(ethers.BigNumber.from(10).pow(12))
+    const moveDenom = await loadMoveDenom(moveOFTAddr)
+    const fromInitAddr = AccAddress.fromHex(fromAddr)
+    const receiverInitiaAddr = AccAddress.fromHex(receiverAddr)
+    const composePayload = `
+{
+  "@type": "/opinit.ophost.v1.MsgInitiateTokenDeposit",
+  "sender": "${fromInitAddr}",
+  "bridge_id": "${opBridgeId}",
+  "to": "${receiverInitiaAddr}",
+  "amount": {
+    "denom": "${moveDenom}",
+    "amount": "${amountSD.toString()}"
+  },
+  "data": ""
+}
+    `
+        .replace(/\s/g, '')
+        .replace(/\n/g, '')
+
+    console.info(`\nComposer Message: ${composePayload}`)
+    return '0x' + Buffer.from(composePayload, 'utf-8').toString('hex')
 }
 
 export async function buildComposerMessage(

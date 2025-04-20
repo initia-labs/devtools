@@ -8,6 +8,7 @@ import {
     MessagingFee,
     SendParam,
     buildComposerMessage,
+    buildOPBridgeComposerMessage,
     checkIfDeploymentExists,
     getDeploymentAddress,
 } from './send-native-forwarding'
@@ -142,7 +143,7 @@ async function sendOFT(args: any, moveOFTAddr: string, forwardingAddr: string): 
     const options = Options.newOptions().addExecutorLzReceiveOption(500_000).addExecutorComposeOption(0, 800_000)
     let composerPayload: string
     if (opBridgeId) {
-        composerPayload = await buildComposerMessage(moveOFTAddr, fromAddress, to, opBridgeId, amount)
+        composerPayload = await buildOPBridgeComposerMessage(moveOFTAddr, fromAddress, to, opBridgeId, amount)
     } else if (ibcChannel) {
         composerPayload = await buildComposerMessage(moveOFTAddr, fromAddress, to, ibcChannel, amount)
     } else {
