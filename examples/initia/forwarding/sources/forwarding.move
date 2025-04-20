@@ -100,7 +100,8 @@ module forwarding::forwarding {
 
         let payload = oft_compose_msg_codec::compose_payload_message(&message);
         let json_object = json::unmarshal<JSONObject>(payload);
-        if (*string::bytes(&option::destroy_some(json::get_elem<String>(&json_object, string::utf8(b"@type")))) != b"/ibc.applications.transfer.v1.MsgTransfer") {
+        let msg_type = *string::bytes(&option::destroy_some(json::get_elem<String>(&json_object, string::utf8(b"@type"))));
+        if (msg_type != b"/ibc.applications.transfer.v1.MsgTransfer" && msg_type != b"/opinit.ophost.v1.MsgInitiateTokenDeposit") {
             abort(error::invalid_argument(EINVALID_COMPOSE_MESSAGE))
         };
 
