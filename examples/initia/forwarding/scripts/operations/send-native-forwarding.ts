@@ -13,7 +13,7 @@ class SendNativeForwardingOperation implements INewOperation {
     vm = 'evm'
     operation = 'send-native-forwarding'
     description = 'Send Native token from EVM to the forwarding contract'
-    reqArgs = ['oapp_config', 'src_eid', 'dst_eid', 'to', 'ibc_channel', 'amount', 'min_amount']
+    reqArgs = ['oapp_config', 'src_eid', 'dst_eid', 'to', 'amount', 'min_amount']
     addArgs = [
         {
             name: '--src-eid',
@@ -40,6 +40,13 @@ class SendNativeForwardingOperation implements INewOperation {
             name: '--ibc-channel',
             arg: {
                 help: 'The IBC channel to send the message to',
+                required: false,
+            },
+        },
+        {
+            name: '--op-bridge-id',
+            arg: {
+                help: 'The OP bridge ID to send the message to',
                 required: false,
             },
         },
@@ -104,6 +111,7 @@ async function sendOFT(args: any, moveOFTAddr: string, forwardingAddr: string): 
     const amount = args.amount
     const minAmount = args.min_amount
     const ibcChannel = args.ibc_channel
+    const opBridgeId = args.op_bridge_id
     const to = args.to
 
     const privateKey = readPrivateKey(args)
@@ -122,14 +130,25 @@ async function sendOFT(args: any, moveOFTAddr: string, forwardingAddr: string): 
     console.log(`\t📝 Using OFT at address: ${oft.address}`)
     console.log(`\t👤 From account: ${fromAddress}`)
     console.log(`\t🎯 To account: ${to}`)
-    console.log(`\t🔗 IBC channel: ${ibcChannel}`)
+    if (ibcChannel) {
+        console.log(`\t🔗 IBC channel: ${ibcChannel}`)
+    } else if (opBridgeId) {
+        console.log(`\t🌐 OP bridge ID: ${opBridgeId}`)
+    }
     console.log(`\t🌐 srcEid: ${srcEid}`)
     console.log(`\t🌐 dstEid: ${dstEid}`)
     console.log(`\t🔍 Amount: ${amount}`)
     console.log(`\t🔍 Min amount: ${minAmount}`)
 
     const options = Options.newOptions().addExecutorLzReceiveOption(500_000).addExecutorComposeOption(0, 800_000)
-    const composerPayload = await buildComposerMessage(moveOFTAddr, fromAddress, to, ibcChannel, amount)
+    let composerPayload: string
+    if (opBridgeId) {
+        composerPayload = await buildOPBridgeComposerMessage(moveOFTAddr, fromAddress, to, opBridgeId, amount)
+    } else if (ibcChannel) {
+        composerPayload = await buildComposerMessage(moveOFTAddr, fromAddress, to, ibcChannel, amount)
+    } else {
+        throw new Error('Either --op-bridge-id or --ibc-channel must be provided')
+    }
     const sendParam: SendParam = {
         dstEid: dstEid,
         to: forwardingAddr,
@@ -176,6 +195,37 @@ export type SendParam = {
 export type MessagingFee = {
     nativeFee: bigint
     lzTokenFee: bigint
+}
+
+export async function buildOPBridgeComposerMessage(
+    moveOFTAddr: string,
+    fromAddr: string,
+    receiverAddr: string,
+    opBridgeId: string,
+    amount: string
+): Promise<string> {
+    const amountSD = ethers.BigNumber.from(amount).div(ethers.BigNumber.from(10).pow(12))
+    const moveDenom = await loadMoveDenom(moveOFTAddr)
+    const fromInitAddr = AccAddress.fromHex(fromAddr)
+    const receiverInitiaAddr = AccAddress.fromHex(receiverAddr)
+    const composePayload = `
+{
+  "@type": "/opinit.ophost.v1.MsgInitiateTokenDeposit",
+  "sender": "${fromInitAddr}",
+  "bridge_id": "${opBridgeId}",
+  "to": "${receiverInitiaAddr}",
+  "amount": {
+    "denom": "${moveDenom}",
+    "amount": "${amountSD.toString()}"
+  },
+  "data": ""
+}
+    `
+        .replace(/\s/g, '')
+        .replace(/\n/g, '')
+
+    console.info(`\nComposer Message: ${composePayload}`)
+    return '0x' + Buffer.from(composePayload, 'utf-8').toString('hex')
 }
 
 export async function buildComposerMessage(

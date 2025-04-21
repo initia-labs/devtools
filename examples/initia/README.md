@@ -101,12 +101,12 @@ To build and deploy the contracts, run the following command:
 
 ### OFT
 ```bash
-pnpm run lz:sdk:move:deploy --oapp-config move.layerzero.config.ts --address-name oft --move-deploy-script deploy-move/OFTInitParams.ts --oapp-type oft --move-package ./move-packages/oft
+pnpm run lz:sdk:move:deploy --oapp-config move.layerzero.config.ts --address-name oft --move-deploy-script deploy-move/OFTInitParams.ts --oapp-type oft --move-package move-oft
 ```
 
 ### OFTAdapter
 ```bash
-pnpm run lz:sdk:move:deploy --oapp-config move.layerzero.config.ts --address-name oft --move-deploy-script deploy-move/OFTAdapterInitParams.ts --oapp-type oft --move-package ./move-packages/oft-adapter
+pnpm run lz:sdk:move:deploy --oapp-config move.layerzero.config.ts --address-name oft --move-deploy-script deploy-move/OFTAdapterInitParams.ts --oapp-type oft --move-package move-oft-adapter
 ```
 
 ### (Optional) Forwarding
@@ -400,6 +400,18 @@ pnpm run lz:sdk:evm:send-forwarding \
   --min-amount <your-min-amount>
 ```
 
+Send token from EVM to Initia via OPBridge
+```bash
+pnpm run lz:sdk:evm:send-forwarding \
+  --oapp-config move.layerzero.config.ts \
+  --src-eid <your-src-eid> \
+  --dst-eid <your-dst-eid> \
+  --to <your-destination-account-address> \
+  --op-bridge-id <your-op-bridge-id> \
+  --amount <your-amount> \
+  --min-amount <your-min-amount>
+```
+
 ### NativeOFTAdapter
 ```bash
 pnpm run lz:sdk:evm:send-evm-native \
@@ -419,6 +431,18 @@ pnpm run lz:sdk:evm:send-native-forwarding \
   --dst-eid <your-dst-eid> \
   --to <your-destination-account-address> \
   --ibc-channel <your-ibc-channel> \
+  --amount <your-amount> \
+  --min-amount <your-min-amount>
+```
+
+Send native token from EVM to Initia via OPBridge
+```bash
+pnpm run lz:sdk:evm:send-native-forwarding \
+  --oapp-config move.layerzero.config.ts \
+  --src-eid <your-src-eid> \
+  --dst-eid <your-dst-eid> \
+  --to <your-destination-account-address> \
+  --op-bridge-id <your-op-bridge-id> \
   --amount <your-amount> \
   --min-amount <your-min-amount>
 ```
