@@ -134,7 +134,11 @@ async function sendOFT(args: any, moveOFTAddr: string, forwardingAddr: string): 
     console.log(`\t📝 Using OFT at address: ${oft.address}`)
     console.log(`\t👤 From account: ${fromAddress}`)
     console.log(`\t🎯 To account: ${to}`)
-    console.log(`\t🔗 IBC channel: ${ibcChannel}`)
+    if (ibcChannel) {
+        console.log(`\t🔗 IBC channel: ${ibcChannel}`)
+    } else if (opBridgeId) {
+        console.log(`\t🌐 OP bridge ID: ${opBridgeId}`)
+    }
     console.log(`\t🌐 srcEid: ${srcEid}`)
     console.log(`\t🌐 dstEid: ${dstEid}`)
     console.log(`\t🔍 Amount: ${amount}`)
