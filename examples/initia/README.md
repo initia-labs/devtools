@@ -101,12 +101,12 @@ To build and deploy the contracts, run the following command:
 
 ### OFT
 ```bash
-pnpm run lz:sdk:move:deploy --oapp-config move.layerzero.config.ts --address-name oft --move-deploy-script deploy-move/OFTInitParams.ts --oapp-type oft --move-package ./move-packages/oft
+pnpm run lz:sdk:move:deploy --oapp-config move.layerzero.config.ts --address-name oft --move-deploy-script deploy-move/OFTInitParams.ts --oapp-type oft --move-package move-oft
 ```
 
 ### OFTAdapter
 ```bash
-pnpm run lz:sdk:move:deploy --oapp-config move.layerzero.config.ts --address-name oft --move-deploy-script deploy-move/OFTAdapterInitParams.ts --oapp-type oft --move-package ./move-packages/oft-adapter
+pnpm run lz:sdk:move:deploy --oapp-config move.layerzero.config.ts --address-name oft --move-deploy-script deploy-move/OFTAdapterInitParams.ts --oapp-type oft --move-package move-oft-adapter
 ```
 
 ### (Optional) Forwarding
