@@ -127,7 +127,8 @@ module forwarding::forwarding {
         let forwarding_signer =
             object::generate_signer_for_extending(&forwarding_store.extend_ref);
 
-        let from_address = to_address(oft_compose_msg_codec::compose_payload_from(&message));
+        let from_address =
+            to_address(oft_compose_msg_codec::compose_payload_from(&message));
         let amount_ld = oft_compose_msg_codec::amount_ld(&message);
         let payload = oft_compose_msg_codec::compose_payload_message(&message);
         let json_object = json::unmarshal<JSONObject>(payload);
@@ -162,10 +163,12 @@ module forwarding::forwarding {
                     json::get_elem<String>(&json_object, string::utf8(b"sender"))
                 )
             );
-        let intermediate_addr = intermediate_addr(from);
+        let intermediate_addr = intermediate_addr(from_address);
         if (!exists<ForwardingIntermediateStore>(intermediate_addr)) {
             let constructor_ref =
-                object::create_named_object(&forwarding_signer, intermediate_seed(from));
+                object::create_named_object(
+                    &forwarding_signer, intermediate_seed(from_address)
+                );
             let extend_ref = object::generate_extend_ref(&constructor_ref);
             let intermediate_signer = object::generate_signer_for_extending(&extend_ref);
 
@@ -197,7 +200,11 @@ module forwarding::forwarding {
         table::add(
             &mut forwarding_store.callback_info,
             forwarding_store.nonce,
-            ForwardingCallbackInfo { from_address: from_address, recovery_address: recovery_address, amount: amount_ld }
+            ForwardingCallbackInfo {
+                from_address: from_address,
+                recovery_address: recovery_address,
+                amount: amount_ld
+            }
         );
 
         let fid = *string::bytes(&address::to_string(@forwarding));
@@ -216,7 +223,7 @@ module forwarding::forwarding {
     ) acquires ForwardingStore, ForwardingIntermediateStore {
         let forwarding_store = borrow_global_mut<ForwardingStore>(@forwarding);
         let info = table::borrow(&forwarding_store.callback_info, id);
-        let intermediate_addr = intermediate_addr(info.from);
+        let intermediate_addr = intermediate_addr(info.from_address);
 
         assert!(
             signer::address_of(sender) == intermediate_addr,
