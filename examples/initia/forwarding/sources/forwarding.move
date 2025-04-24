@@ -14,7 +14,7 @@ module forwarding::forwarding {
     use std::table;
     use std::signer;
 
-    use endpoint_v2_common::bytes32::{Bytes32, to_bytes32};
+    use endpoint_v2_common::bytes32::{Bytes32, to_bytes32, to_address};
     use endpoint_v2_common::contract_identity::{
         Self,
         CallRef,
@@ -43,7 +43,8 @@ module forwarding::forwarding {
     }
 
     struct ForwardingCallbackInfo has store, drop {
-        from: address,
+        from_address: address,
+        recovery_address: address,
         amount: u64
     }
 
@@ -126,6 +127,8 @@ module forwarding::forwarding {
         let forwarding_signer =
             object::generate_signer_for_extending(&forwarding_store.extend_ref);
 
+        let from_address = to_address(oft_compose_msg_codec::compose_payload_from(&message));
+        let amount_ld = oft_compose_msg_codec::amount_ld(&message);
         let payload = oft_compose_msg_codec::compose_payload_message(&message);
         let json_object = json::unmarshal<JSONObject>(payload);
         let msg_type =
@@ -140,10 +143,20 @@ module forwarding::forwarding {
             && msg_type != b"/initia.move.v1.MsgExecuteJSON"
             && msg_type != b"/initia.move.v1.MsgScript"
             && msg_type != b"/initia.move.v1.MsgScriptJSON") {
-            abort(error::invalid_argument(EINVALID_COMPOSE_MESSAGE))
+
+            // wrong message type, return the oft to the sender
+            primary_fungible_store::transfer(
+                &forwarding_signer,
+                metadata(),
+                from_address,
+                amount_ld
+            );
+
+            return
         };
 
-        let from =
+        // get the recovery address from the json object
+        let recovery_address =
             address::from_sdk(
                 option::destroy_some(
                     json::get_elem<String>(&json_object, string::utf8(b"sender"))
@@ -167,7 +180,6 @@ module forwarding::forwarding {
         let intermediate_signer =
             object::generate_signer_for_extending(&intermediate_store.extend_ref);
 
-        let amount_ld = oft_compose_msg_codec::amount_ld(&message);
         primary_fungible_store::transfer(
             &forwarding_signer,
             metadata(),
@@ -185,7 +197,7 @@ module forwarding::forwarding {
         table::add(
             &mut forwarding_store.callback_info,
             forwarding_store.nonce,
-            ForwardingCallbackInfo { from: from, amount: amount_ld }
+            ForwardingCallbackInfo { from_address: from_address, recovery_address: recovery_address, amount: amount_ld }
         );
 
         let fid = *string::bytes(&address::to_string(@forwarding));
@@ -219,7 +231,7 @@ module forwarding::forwarding {
             primary_fungible_store::transfer(
                 &intermediate_signer,
                 metadata(),
-                info.from,
+                info.recovery_address,
                 info.amount
             );
         };
