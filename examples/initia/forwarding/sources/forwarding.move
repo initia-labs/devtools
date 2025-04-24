@@ -12,6 +12,7 @@ module forwarding::forwarding {
     use std::string::{Self, String};
     use std::vector;
     use std::table;
+    use std::signer;
 
     use endpoint_v2_common::bytes32::{Bytes32, to_bytes32};
     use endpoint_v2_common::contract_identity::{
@@ -198,13 +199,18 @@ module forwarding::forwarding {
         );
     }
 
-    public fun forward_callback(
-        id: u64, success: bool
+    public entry fun forward_callback(
+        sender: &signer, id: u64, success: bool
     ) acquires ForwardingStore, ForwardingIntermediateStore {
         let forwarding_store = borrow_global_mut<ForwardingStore>(@forwarding);
+        let info = table::borrow(&forwarding_store.callback_info, id);
+        let intermediate_addr = intermediate_addr(info.from);
+
+        assert!(
+            signer::address_of(sender) == intermediate_addr,
+            error::invalid_argument(EINVALID_CALLBACK_SENDER)
+        );
         if (!success) {
-            let info = table::borrow(&forwarding_store.callback_info, id);
-            let intermediate_addr = intermediate_addr(info.from);
             let intermediate_store =
                 borrow_global<ForwardingIntermediateStore>(intermediate_addr);
             let intermediate_signer =
@@ -258,4 +264,6 @@ module forwarding::forwarding {
     const EINVALID_TOKEN: u64 = 1;
 
     const EINVALID_COMPOSE_MESSAGE: u64 = 2;
+
+    const EINVALID_CALLBACK_SENDER: u64 = 3;
 }
