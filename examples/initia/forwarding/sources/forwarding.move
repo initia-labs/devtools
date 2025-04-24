@@ -10,6 +10,8 @@ module forwarding::forwarding {
     use std::primary_fungible_store;
     use std::error;
     use std::string::{Self, String};
+    use std::vector;
+    use std::table;
 
     use endpoint_v2_common::bytes32::{Bytes32, to_bytes32};
     use endpoint_v2_common::contract_identity::{
@@ -33,8 +35,15 @@ module forwarding::forwarding {
     use deployer::deployer as deployer;
 
     struct ForwardingStore has key {
+        nonce: u64,
+        callback_info: table::Table<u64, ForwardingCallbackInfo>,
         contract_signer: ContractSigner,
         extend_ref: object::ExtendRef
+    }
+
+    struct ForwardingCallbackInfo has store, drop {
+        from: address,
+        amount: u64
     }
 
     struct ForwardingIntermediateStore has key {
@@ -45,6 +54,8 @@ module forwarding::forwarding {
         move_to(
             account,
             ForwardingStore {
+                nonce: 0,
+                callback_info: table::new(),
                 contract_signer: create_contract_signer(account),
                 extend_ref: deployer::claim_extend_ref(account) // to create signer of self
             }
@@ -110,7 +121,7 @@ module forwarding::forwarding {
             }
         );
 
-        let forwarding_store = borrow_global<ForwardingStore>(@forwarding);
+        let forwarding_store = borrow_global_mut<ForwardingStore>(@forwarding);
         let forwarding_signer =
             object::generate_signer_for_extending(&forwarding_store.extend_ref);
 
@@ -168,7 +179,45 @@ module forwarding::forwarding {
             string::utf8(b"sender"),
             &address::to_sdk(intermediate_addr)
         );
-        cosmos::stargate(&intermediate_signer, json::marshal(&json_object));
+
+        forwarding_store.nonce = forwarding_store.nonce + 1;
+        table::add(
+            &mut forwarding_store.callback_info,
+            forwarding_store.nonce,
+            ForwardingCallbackInfo { from: from, amount: amount_ld }
+        );
+
+        let fid = *string::bytes(&address::to_string(@forwarding));
+        vector::append(&mut fid, b"::forwarding::forward_callback");
+        cosmos::stargate_with_options(
+            &intermediate_signer,
+            json::marshal(&json_object),
+            cosmos::allow_failure_with_callback(
+                forwarding_store.nonce, string::utf8(fid)
+            )
+        );
+    }
+
+    public fun forward_callback(
+        id: u64, success: bool
+    ) acquires ForwardingStore, ForwardingIntermediateStore {
+        let forwarding_store = borrow_global_mut<ForwardingStore>(@forwarding);
+        if (!success) {
+            let info = table::borrow(&forwarding_store.callback_info, id);
+            let intermediate_addr = intermediate_addr(info.from);
+            let intermediate_store =
+                borrow_global<ForwardingIntermediateStore>(intermediate_addr);
+            let intermediate_signer =
+                object::generate_signer_for_extending(&intermediate_store.extend_ref);
+
+            primary_fungible_store::transfer(
+                &intermediate_signer,
+                metadata(),
+                info.from,
+                info.amount
+            );
+        };
+        table::remove(&mut forwarding_store.callback_info, id);
     }
 
     // ===================================================== View= ====================================================
