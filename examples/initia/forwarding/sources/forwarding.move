@@ -12,8 +12,19 @@ module forwarding::forwarding {
     use std::string::{Self, String};
 
     use endpoint_v2_common::bytes32::{Bytes32, to_bytes32};
-    use endpoint_v2_common::contract_identity::{Self, CallRef, ContractSigner, create_contract_signer, DynamicCallRef};
-    use endpoint_v2::endpoint::{Self, WrappedGuidAndIndex, wrap_guid_and_index, get_guid_and_index_from_wrapped};
+    use endpoint_v2_common::contract_identity::{
+        Self,
+        CallRef,
+        ContractSigner,
+        create_contract_signer,
+        DynamicCallRef
+    };
+    use endpoint_v2::endpoint::{
+        Self,
+        WrappedGuidAndIndex,
+        wrap_guid_and_index,
+        get_guid_and_index_from_wrapped
+    };
 
     use oft::oapp_core::get_admin;
     use oft_common::oft_compose_msg_codec;
@@ -23,18 +34,21 @@ module forwarding::forwarding {
 
     struct ForwardingStore has key {
         contract_signer: ContractSigner,
-        extend_ref: object::ExtendRef,
+        extend_ref: object::ExtendRef
     }
 
     struct ForwardingIntermediateStore has key {
-        extend_ref: object::ExtendRef,
+        extend_ref: object::ExtendRef
     }
 
     fun init_module(account: &signer) {
-        move_to(account, ForwardingStore {
-            contract_signer: create_contract_signer(account),
-            extend_ref: deployer::claim_extend_ref(account), // to create signer of self
-        });
+        move_to(
+            account,
+            ForwardingStore {
+                contract_signer: create_contract_signer(account),
+                extend_ref: deployer::claim_extend_ref(account) // to create signer of self
+            }
+        );
 
         // register composer
         endpoint::register_composer(account, utf8(b"forwarding"));
@@ -45,10 +59,15 @@ module forwarding::forwarding {
         guid: vector<u8>,
         index: u16,
         message: vector<u8>,
-        extra_data: vector<u8>,
+        extra_data: vector<u8>
     ) acquires ForwardingStore, ForwardingIntermediateStore {
         let guid = to_bytes32(guid);
-        endpoint::clear_compose(&call_ref(), from, wrap_guid_and_index(guid, index), message);
+        endpoint::clear_compose(
+            &call_ref(),
+            from,
+            wrap_guid_and_index(guid, index),
+            message
+        );
 
         lz_compose_impl(
             from,
@@ -56,7 +75,7 @@ module forwarding::forwarding {
             index,
             message,
             extra_data,
-            option::none(),
+            option::none()
         )
     }
 
@@ -65,21 +84,14 @@ module forwarding::forwarding {
         guid_and_index: WrappedGuidAndIndex,
         message: vector<u8>,
         extra_data: vector<u8>,
-        value: Option<FungibleAsset>,
+        value: Option<FungibleAsset>
     ) acquires ForwardingStore, ForwardingIntermediateStore {
         assert!(option::is_none(&value), error::invalid_argument(EINVALID_TOKEN));
         let (guid, index) = get_guid_and_index_from_wrapped(&guid_and_index);
 
         endpoint::clear_compose(&call_ref(), from, guid_and_index, message);
 
-        lz_compose_impl(
-            from,
-            guid,
-            index,
-            message,
-            extra_data,
-            value,
-        );
+        lz_compose_impl(from, guid, index, message, extra_data, value);
     }
 
     /// a user have to send oft to intermediate_addr(from) to use compose feature
@@ -89,41 +101,73 @@ module forwarding::forwarding {
         _index: u16,
         message: vector<u8>,
         _extra_data: vector<u8>,
-        value: Option<FungibleAsset>,
+        value: Option<FungibleAsset>
     ) acquires ForwardingStore, ForwardingIntermediateStore {
-        option::destroy(value, |value| {
-            primary_fungible_store::deposit(get_admin(), value)
-        });
+        option::destroy(
+            value,
+            |value| {
+                primary_fungible_store::deposit(get_admin(), value)
+            }
+        );
 
         let forwarding_store = borrow_global<ForwardingStore>(@forwarding);
-        let forwarding_signer = object::generate_signer_for_extending(&forwarding_store.extend_ref);
+        let forwarding_signer =
+            object::generate_signer_for_extending(&forwarding_store.extend_ref);
 
         let payload = oft_compose_msg_codec::compose_payload_message(&message);
         let json_object = json::unmarshal<JSONObject>(payload);
-        let msg_type = *string::bytes(&option::destroy_some(json::get_elem<String>(&json_object, string::utf8(b"@type"))));
-        if (msg_type != b"/ibc.applications.transfer.v1.MsgTransfer" && msg_type != b"/opinit.ophost.v1.MsgInitiateTokenDeposit") {
+        let msg_type =
+            *string::bytes(
+                &option::destroy_some(
+                    json::get_elem<String>(&json_object, string::utf8(b"@type"))
+                )
+            );
+        if (msg_type != b"/ibc.applications.transfer.v1.MsgTransfer"
+            && msg_type != b"/opinit.ophost.v1.MsgInitiateTokenDeposit"
+            && msg_type != b"/initia.move.v1.MsgExecute"
+            && msg_type != b"/initia.move.v1.MsgExecuteJSON"
+            && msg_type != b"/initia.move.v1.MsgScript"
+            && msg_type != b"/initia.move.v1.MsgScriptJSON") {
             abort(error::invalid_argument(EINVALID_COMPOSE_MESSAGE))
         };
 
-        let from = address::from_sdk(option::destroy_some(json::get_elem<String>(&json_object, string::utf8(b"sender"))));
+        let from =
+            address::from_sdk(
+                option::destroy_some(
+                    json::get_elem<String>(&json_object, string::utf8(b"sender"))
+                )
+            );
         let intermediate_addr = intermediate_addr(from);
         if (!exists<ForwardingIntermediateStore>(intermediate_addr)) {
-            let constructor_ref = object::create_named_object(&forwarding_signer, intermediate_seed(from));
+            let constructor_ref =
+                object::create_named_object(&forwarding_signer, intermediate_seed(from));
             let extend_ref = object::generate_extend_ref(&constructor_ref);
             let intermediate_signer = object::generate_signer_for_extending(&extend_ref);
 
-            move_to(&intermediate_signer, ForwardingIntermediateStore {
-                extend_ref: extend_ref,
-            })
+            move_to(
+                &intermediate_signer,
+                ForwardingIntermediateStore { extend_ref: extend_ref }
+            )
         };
 
-        let intermediate_store = borrow_global<ForwardingIntermediateStore>(intermediate_addr);
-        let intermediate_signer = object::generate_signer_for_extending(&intermediate_store.extend_ref);
+        let intermediate_store =
+            borrow_global<ForwardingIntermediateStore>(intermediate_addr);
+        let intermediate_signer =
+            object::generate_signer_for_extending(&intermediate_store.extend_ref);
 
         let amount_ld = oft_compose_msg_codec::amount_ld(&message);
-        primary_fungible_store::transfer(&forwarding_signer, metadata(), intermediate_addr, amount_ld);
+        primary_fungible_store::transfer(
+            &forwarding_signer,
+            metadata(),
+            intermediate_addr,
+            amount_ld
+        );
 
-        json::set_elem(&mut json_object, string::utf8(b"sender"), &address::to_sdk(intermediate_addr));
+        json::set_elem(
+            &mut json_object,
+            string::utf8(b"sender"),
+            &address::to_sdk(intermediate_addr)
+        );
         cosmos::stargate(&intermediate_signer, json::marshal(&json_object));
     }
 
@@ -132,14 +176,17 @@ module forwarding::forwarding {
     #[view]
     /// named object of forwarding_addr() with bytes(address) as seed
     public fun intermediate_addr(from: address): address {
-        let intermediate_addr = object::create_object_address(&@forwarding, intermediate_seed(from));
+        let intermediate_addr =
+            object::create_object_address(&@forwarding, intermediate_seed(from));
 
         intermediate_addr
     }
 
     // ==================================================== Helper ====================================================
 
-    inline fun store(): &ForwardingStore { borrow_global(@forwarding) }
+    inline fun store(): &ForwardingStore {
+        borrow_global(@forwarding)
+    }
 
     inline fun forwarding_seed(): vector<u8> {
         b"forwarding"
