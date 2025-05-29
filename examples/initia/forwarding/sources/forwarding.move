@@ -1,7 +1,35 @@
+/// Forwarding contract for LayerZero OFT (Omnichain Fungible Token).
+///
+/// This contract enables users to send OFT tokens with a compose message that specifies
+/// how the tokens should be handled at the destination. The compose message must be a 
+/// valid JSON object containing a Cosmos message.
+///
+/// Flow:
+/// 1. User sends OFT + compose message to this contract
+/// 2. Contract forwards tokens to an intermediate address
+/// 3. If JSON parsing succeeds:
+///    - Intermediate address executes the compose message
+///    - On failure, funds return to recovery address
+/// 4. If JSON parsing fails:
+///    - Funds remain locked in intermediate address
+///
+/// The recovery address is specified in the compose message's "sender" field:
+/// ```json
+/// {
+///     "@type": "/initia.move.v1.MsgExecuteJSON", 
+///     "sender": "initia1...",  // Recovery address
+///     "module_address": "0x1",
+///     "module_name": "dex",
+///     "function_name": "swap",
+///     "type_args": [],
+///     "args": []
+/// }
+/// ```
+///
 module forwarding::forwarding {
-    use std::object;
-    use std::address;
-    use std::fungible_asset::FungibleAsset;
+    use std::object::{Self, Object};
+    use std::address::{Self, to_sdk};
+    use std::fungible_asset::{FungibleAsset, Metadata};
     use std::option::{Self, Option};
     use std::cosmos;
     use std::bcs;
@@ -13,6 +41,7 @@ module forwarding::forwarding {
     use std::vector;
     use std::table;
     use std::signer;
+    use std::code;
 
     use endpoint_v2_common::bytes32::{Bytes32, to_bytes32, to_address};
     use endpoint_v2_common::contract_identity::{
@@ -29,15 +58,15 @@ module forwarding::forwarding {
         get_guid_and_index_from_wrapped
     };
 
-    use oft::oapp_core::get_admin;
     use oft_common::oft_compose_msg_codec;
-    use oft::oft::metadata;
 
     use deployer::deployer as deployer;
 
     struct ForwardingStore has key {
+        admin: address,
         nonce: u64,
         callback_info: table::Table<u64, ForwardingCallbackInfo>,
+        oft_metadata: table::Table<address, Object<Metadata>>,
         contract_signer: ContractSigner,
         extend_ref: object::ExtendRef
     }
@@ -45,7 +74,8 @@ module forwarding::forwarding {
     struct ForwardingCallbackInfo has store, drop {
         from_address: address,
         recovery_address: address,
-        amount: u64
+        metadata: Object<Metadata>,
+        amount_ld: u64
     }
 
     struct ForwardingIntermediateStore has key {
@@ -56,10 +86,12 @@ module forwarding::forwarding {
         move_to(
             account,
             ForwardingStore {
+                admin: @deployer,
                 nonce: 0,
                 callback_info: table::new(),
+                oft_metadata: table::new(),
                 contract_signer: create_contract_signer(account),
-                extend_ref: deployer::claim_extend_ref(account) // to create signer of self
+                extend_ref: deployer::claim_extend_ref(account)
             }
         );
 
@@ -67,13 +99,15 @@ module forwarding::forwarding {
         endpoint::register_composer(account, utf8(b"forwarding"));
     }
 
+    // ===================================================== OFT actions ====================================================
+
     public entry fun lz_compose(
         from: address,
         guid: vector<u8>,
         index: u16,
         message: vector<u8>,
         extra_data: vector<u8>
-    ) acquires ForwardingStore, ForwardingIntermediateStore {
+    ) acquires ForwardingStore {
         let guid = to_bytes32(guid);
         endpoint::clear_compose(
             &call_ref(),
@@ -98,32 +132,28 @@ module forwarding::forwarding {
         message: vector<u8>,
         extra_data: vector<u8>,
         value: Option<FungibleAsset>
-    ) acquires ForwardingStore, ForwardingIntermediateStore {
+    ) acquires ForwardingStore {
         assert!(option::is_none(&value), error::invalid_argument(EINVALID_TOKEN));
         let (guid, index) = get_guid_and_index_from_wrapped(&guid_and_index);
-
         endpoint::clear_compose(&call_ref(), from, guid_and_index, message);
-
         lz_compose_impl(from, guid, index, message, extra_data, value);
     }
 
-    /// a user have to send oft to intermediate_addr(from) to use compose feature
-    public fun lz_compose_impl(
-        _oapp: address,
+    /// send the oft to the intermediate_addr(from) to execute safe_lz_compose
+    fun lz_compose_impl(
+        oapp: address,
         _guid: Bytes32,
         _index: u16,
         message: vector<u8>,
         _extra_data: vector<u8>,
         value: Option<FungibleAsset>
-    ) acquires ForwardingStore, ForwardingIntermediateStore {
+    ) acquires ForwardingStore {
+        let forwarding_store = borrow_global_mut<ForwardingStore>(@forwarding);
         option::destroy(
             value,
-            |value| {
-                primary_fungible_store::deposit(get_admin(), value)
-            }
+            |value| { primary_fungible_store::deposit(forwarding_store.admin, value) }
         );
 
-        let forwarding_store = borrow_global_mut<ForwardingStore>(@forwarding);
         let forwarding_signer =
             object::generate_signer_for_extending(&forwarding_store.extend_ref);
 
@@ -131,30 +161,55 @@ module forwarding::forwarding {
             to_address(oft_compose_msg_codec::compose_payload_from(&message));
         let amount_ld = oft_compose_msg_codec::amount_ld(&message);
         let payload = oft_compose_msg_codec::compose_payload_message(&message);
-        let json_object = json::unmarshal<JSONObject>(payload);
-        let msg_type =
-            *string::bytes(
-                &option::destroy_some(
-                    json::get_elem<String>(&json_object, string::utf8(b"@type"))
-                )
-            );
-        if (msg_type != b"/ibc.applications.transfer.v1.MsgTransfer"
-            && msg_type != b"/opinit.ophost.v1.MsgInitiateTokenDeposit"
-            && msg_type != b"/initia.move.v1.MsgExecute"
-            && msg_type != b"/initia.move.v1.MsgExecuteJSON"
-            && msg_type != b"/initia.move.v1.MsgScript"
-            && msg_type != b"/initia.move.v1.MsgScriptJSON") {
 
-            // wrong message type, return the oft to the sender
-            primary_fungible_store::transfer(
-                &forwarding_signer,
-                metadata(),
-                from_address,
-                amount_ld
-            );
+        // send the oft to the intermediate_addr
+        let metadata = oft_metadata(oapp);
+        primary_fungible_store::transfer(
+            &forwarding_signer,
+            metadata,
+            intermediate_addr(from_address),
+            amount_ld
+        );
 
-            return
+        // execute safe_lz_compose
+        let safe_forward_payload = SafeForwardPayload {
+            _type_: utf8(b"/initia.move.v1.MsgExecuteJSON"),
+            sender: to_sdk(signer::address_of(&forwarding_signer)),
+            module_address: @forwarding,
+            module_name: utf8(b"forwarding"),
+            function_name: utf8(b"safe_forward"),
+            type_args: vector[],
+            args: vector[
+                json::marshal_to_string(&from_address),
+                json::marshal_to_string(&std::hex::encode_to_string(&payload)),
+                json::marshal_to_string(&metadata),
+                json::marshal_to_string(&amount_ld)
+            ]
         };
+
+        // Allow transaction to continue even if forwarding fails.
+        // Failed forwarding leaves funds in intermediate address for later withdrawal.
+        cosmos::stargate_with_options(
+            &forwarding_signer,
+            json::marshal(&safe_forward_payload),
+            cosmos::allow_failure()
+        );
+    }
+
+    public entry fun safe_forward(
+        forwarding_signer: &signer,
+        from_address: address,
+        payload: vector<u8>,
+        metadata: Object<Metadata>,
+        amount_ld: u64
+    ) acquires ForwardingStore, ForwardingIntermediateStore {
+        // check if the sender is the forwarding contract
+        assert!(
+            signer::address_of(forwarding_signer) == @forwarding,
+            error::permission_denied(EINVALID_FORWARDING_SENDER)
+        );
+
+        let json_object = json::unmarshal<JSONObject>(payload);
 
         // get the recovery address from the json object
         let recovery_address =
@@ -167,7 +222,7 @@ module forwarding::forwarding {
         if (!exists<ForwardingIntermediateStore>(intermediate_addr)) {
             let constructor_ref =
                 object::create_named_object(
-                    &forwarding_signer, intermediate_seed(from_address)
+                    forwarding_signer, intermediate_seed(from_address)
                 );
             let extend_ref = object::generate_extend_ref(&constructor_ref);
             let intermediate_signer = object::generate_signer_for_extending(&extend_ref);
@@ -183,19 +238,15 @@ module forwarding::forwarding {
         let intermediate_signer =
             object::generate_signer_for_extending(&intermediate_store.extend_ref);
 
-        primary_fungible_store::transfer(
-            &forwarding_signer,
-            metadata(),
-            intermediate_addr,
-            amount_ld
-        );
-
+        // replace the sender with the intermediate address
         json::set_elem(
             &mut json_object,
             string::utf8(b"sender"),
             &address::to_sdk(intermediate_addr)
         );
 
+        // add the callback info
+        let forwarding_store = store_mut();
         forwarding_store.nonce = forwarding_store.nonce + 1;
         table::add(
             &mut forwarding_store.callback_info,
@@ -203,10 +254,13 @@ module forwarding::forwarding {
             ForwardingCallbackInfo {
                 from_address: from_address,
                 recovery_address: recovery_address,
-                amount: amount_ld
+                metadata: metadata,
+                amount_ld: amount_ld
             }
         );
 
+        // Execute compose message with failure recovery callback.
+        // On failure, funds are returned to the recovery address specified in the sender field.
         let fid = *string::bytes(&address::to_string(@forwarding));
         vector::append(&mut fid, b"::forwarding::forward_callback");
         cosmos::stargate_with_options(
@@ -218,6 +272,7 @@ module forwarding::forwarding {
         );
     }
 
+    /// callback send the funds to the recovery address
     public entry fun forward_callback(
         sender: &signer, id: u64, success: bool
     ) acquires ForwardingStore, ForwardingIntermediateStore {
@@ -227,7 +282,7 @@ module forwarding::forwarding {
 
         assert!(
             signer::address_of(sender) == intermediate_addr,
-            error::invalid_argument(EINVALID_CALLBACK_SENDER)
+            error::permission_denied(EINVALID_CALLBACK_SENDER)
         );
         if (!success) {
             let intermediate_store =
@@ -237,15 +292,69 @@ module forwarding::forwarding {
 
             primary_fungible_store::transfer(
                 &intermediate_signer,
-                metadata(),
+                info.metadata,
                 info.recovery_address,
-                info.amount
+                info.amount_ld
             );
         };
         table::remove(&mut forwarding_store.callback_info, id);
     }
 
-    // ===================================================== View= ====================================================
+    // ===================================================== Admin actions ====================================================
+
+    public entry fun set_oft_metadata(
+        account: &signer, oapp_addr: address, metadata: Object<Metadata>
+    ) acquires ForwardingStore {
+        assert!(
+            signer::address_of(account) == store().admin,
+            error::permission_denied(EINVALID_ADMIN)
+        );
+
+        table::upsert(&mut store_mut().oft_metadata, oapp_addr, metadata);
+    }
+
+    public entry fun transfer_admin(account: &signer, new_admin: address) acquires ForwardingStore {
+        assert!(
+            signer::address_of(account) == store().admin,
+            error::permission_denied(EINVALID_ADMIN)
+        );
+        store_mut().admin = new_admin;
+    }
+
+    /// admin function to upgrade the forwarding contract
+    public entry fun upgrade(account: &signer, code: vector<vector<u8>>) acquires ForwardingStore {
+        assert!(
+            signer::address_of(account) == store().admin,
+            error::permission_denied(EINVALID_ADMIN)
+        );
+
+        let forwarding_signer =
+            object::generate_signer_for_extending(&store().extend_ref);
+        code::publish_v2(&forwarding_signer, code, 1);
+    }
+
+    /// admin function to withdraw the stuck funds from the forwarding contract
+    public entry fun withdraw(
+        account: &signer,
+        recipient: address,
+        metadata: Object<Metadata>,
+        amount: u64
+    ) acquires ForwardingStore {
+        assert!(
+            signer::address_of(account) == store().admin,
+            error::permission_denied(EINVALID_ADMIN)
+        );
+        let forwarding_signer =
+            object::generate_signer_for_extending(&store().extend_ref);
+        primary_fungible_store::transfer(
+            &forwarding_signer,
+            metadata,
+            recipient,
+            amount
+        );
+    }
+
+    // ===================================================== View actions ====================================================
 
     #[view]
     /// named object of forwarding_addr() with bytes(address) as seed
@@ -256,10 +365,43 @@ module forwarding::forwarding {
         intermediate_addr
     }
 
+    #[view]
+    public fun oft_metadata(oapp_addr: address): object::Object<Metadata> acquires ForwardingStore {
+        assert!(
+            table::contains(&store().oft_metadata, oapp_addr),
+            error::invalid_argument(ENOT_REGISTERED_OAPP)
+        );
+
+        *table::borrow(&store().oft_metadata, oapp_addr)
+    }
+
+    #[view]
+    public fun oft_metadata_list(): (vector<address>, vector<Object<Metadata>>) acquires ForwardingStore {
+        let oapp_list = vector::empty();
+        let metadata_list = vector::empty();
+        let iter = table::iter(&store().oft_metadata, option::none(), option::none(), 1);
+        while (table::prepare(iter)) {
+            let (key, value) = table::next(iter);
+            vector::push_back(&mut oapp_list, key);
+            vector::push_back(&mut metadata_list, *value);
+        };
+
+        (oapp_list, metadata_list)
+    }
+
+    #[view]
+    public fun admin(): address acquires ForwardingStore {
+        store().admin
+    }
+
     // ==================================================== Helper ====================================================
 
     inline fun store(): &ForwardingStore {
         borrow_global(@forwarding)
+    }
+
+    inline fun store_mut(): &mut ForwardingStore {
+        borrow_global_mut(@forwarding)
     }
 
     inline fun forwarding_seed(): vector<u8> {
@@ -285,4 +427,22 @@ module forwarding::forwarding {
     const EINVALID_COMPOSE_MESSAGE: u64 = 2;
 
     const EINVALID_CALLBACK_SENDER: u64 = 3;
+
+    const EINVALID_FORWARDING_SENDER: u64 = 4;
+
+    const EINVALID_ADMIN: u64 = 5;
+
+    const ENOT_REGISTERED_OAPP: u64 = 6;
+
+    // ================================================== Encoding Structs ==================================================
+
+    struct SafeForwardPayload has drop {
+        _type_: String,
+        sender: String,
+        module_address: address,
+        module_name: String,
+        function_name: String,
+        type_args: vector<String>,
+        args: vector<String>
+    }
 }

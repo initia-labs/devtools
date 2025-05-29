@@ -1,9 +1,11 @@
-## OFT Initia Example
+# OFT Initia Example
 
-### Before you begin
+## Before you begin
+
 The following is a guide for deploying OFT pairs and wiring them to Initia:
 
 EVM / Initia
+
 - `NativeOFTAdapter (ETH)` / `OFT`
 - `OFTAdapter (WETH)` / `OFT`
 - `OFT` / `OFTAdapter (uinit)`
@@ -28,7 +30,7 @@ npm install -g pnpm@8.14.0
 ## Initiad Setup
 
 Deploying to Initia requires the Initia CLI tool (Initiad). To install Initiad, follow the official documentation at:
-https://docs.initia.xyz/build-on-initia/initiad
+<https://docs.initia.xyz/build-on-initia/initiad>
 
 After installation, add your private key to the keyring:
 
@@ -100,25 +102,37 @@ pnpm run lz:sdk:move:build --oapp-config move.layerzero.config.ts --oapp-type of
 To build and deploy the contracts, run the following command:
 
 ### OFT
+
 ```bash
 pnpm run lz:sdk:move:deploy --oapp-config move.layerzero.config.ts --address-name oft --move-deploy-script deploy-move/OFTInitParams.ts --oapp-type oft --move-package move-oft
 ```
 
 ### OFTAdapter
+
 ```bash
 pnpm run lz:sdk:move:deploy --oapp-config move.layerzero.config.ts --address-name oft --move-deploy-script deploy-move/OFTAdapterInitParams.ts --oapp-type oft --move-package move-oft-adapter
 ```
 
 ### (Optional) Forwarding
+
 deploy IBC forwarding lz composer on Initia Testnet
+
 ```bash
 pnpm run lz:sdk:move:deploy-forwarding --oapp-config move.layerzero.config.ts
+```
+
+register OFT metadata on forwarding
+
+```bash
+pnpm run lz:sdk:move:register-oft-metadata-on-forwarding --oapp-config move.layerzero.config.ts
 ```
 
 ## EVM Deployment
 
 ### OFT
+
 You need to properly specify the token name and symbol in the `MyEVMOFT.ts` deployment script.
+
 ```ts
 const { address } = await deploy(contractName, {
     from: deployer,
@@ -133,7 +147,9 @@ const { address } = await deploy(contractName, {
 ```
 
 ### OFTAdapter
+
 You need to properly specify the token address in the `MyOFTAdapter.ts` deployment script.
+
 ```ts
 const { address } = await deploy(contractName, {
     from: deployer,
@@ -150,12 +166,13 @@ const { address } = await deploy(contractName, {
 npx hardhat lz:deploy
 ```
 
-* Select only the EVM networks you wish to deploy to (do not select Aptos, Movement, Solana, or Initia).
-* Specify the contract to deploy ( MyNativeOFTAdapter, MyOFTAdapter, MyOFT)
+- Select only the EVM networks you wish to deploy to (do not select Aptos, Movement, Solana, or Initia).
+- Specify the contract to deploy ( MyNativeOFTAdapter, MyOFTAdapter, MyOFT)
 
 ## Init and Set Delegate
 
 ### OFT
+
 First modify deploy-move/OFTInitParams.ts and replace the oftMetadata with your desired values:
 
 ```ts
@@ -204,7 +221,6 @@ Then run the following command to initialize the oft:
 pnpm run lz:sdk:move:init-fa-adapter --oapp-config move.layerzero.config.ts --move-deploy-script deploy-move/OFTAdapterInitParams.ts
 ```
 
-
 ## Wire
 
 > **Important:** Follow the [LayerZero Project Configuration Guide](https://docs.layerzero.network/v2/developers/evm/create-lz-oapp/project-config) to properly set up your `move.layerzero.config.ts` file with correct endpoint IDs and network configurations before running wiring commands.
@@ -233,7 +249,7 @@ If you are wiring solana to move-vm, create a file in deployments/solana-mainnet
 }
 ```
 
-### To wire from EVM to Move-VM:
+### To wire from EVM to Move-VM
 
 ```bash
 pnpm run lz:sdk:evm:wire --oapp-config move.layerzero.config.ts
@@ -244,9 +260,9 @@ Note: `--simulate <true>` and `--mnemonic-index <value>` are optional.
 If `--only-calldata <true>` is specified, only the calldata is generated and not the transaction (this is primarily for multisig wallets).
 To wire from Move-VM to EVM:
 
-### To wire from Move-VM to EVM:
+### To wire from Move-VM to EVM
 
-> **⚠️ Important Security Consideration:** When configuring your `move.layerzero.config.ts` file, pay careful attention to the `confirmations` parameter. This value determines the number of block confirmations to wait on Aptos before emitting the message from the source chain. The default value of `5` is for illustration purposes only. For production deployments, it is critical to select an appropriate confirmation value based on your security requirements and risk assessment. Default recommended values can be found at: https://layerzeroscan.com/tools/defaults
+> **⚠️ Important Security Consideration:** When configuring your `move.layerzero.config.ts` file, pay careful attention to the `confirmations` parameter. This value determines the number of block confirmations to wait on Aptos before emitting the message from the source chain. The default value of `5` is for illustration purposes only. For production deployments, it is critical to select an appropriate confirmation value based on your security requirements and risk assessment. Default recommended values can be found at: <https://layerzeroscan.com/tools/defaults>
 
 ```bash
 pnpm run lz:sdk:move:wire --oapp-config move.layerzero.config.ts
@@ -335,7 +351,7 @@ pnpm run lz:sdk:move:transfer-object-owner --oapp-config move.layerzero.config.t
 
 Note: The object owner has the upgrade authority for the Object.
 
-### Mint to Account on Move VM OFT:
+### Mint to Account on Move VM OFT
 
 > ⚠️ **Warning**: This mint command is only for testing and experimentation purposes. Do not use in production.
 > First add this function to ./sources/internal_oft/oft_fa.move in order to expose minting functionality to our move sdk script:
@@ -378,6 +394,7 @@ pnpm run lz:sdk:move:send-from-move-oft \
 ### OFT / OFTAdapter
 
 > In the case of **OFTAdapter**, the **approve** function can be called for ERC20 tokens.
+
 ```bash
 pnpm run lz:sdk:evm:send-evm \
   --oapp-config move.layerzero.config.ts \
@@ -389,6 +406,7 @@ pnpm run lz:sdk:evm:send-evm \
 ```
 
 Send token from EVM to Initia via IBC
+
 ```bash
 pnpm run lz:sdk:evm:send-forwarding \
   --oapp-config move.layerzero.config.ts \
@@ -401,6 +419,7 @@ pnpm run lz:sdk:evm:send-forwarding \
 ```
 
 Send token from EVM to Initia via OPBridge
+
 ```bash
 pnpm run lz:sdk:evm:send-forwarding \
   --oapp-config move.layerzero.config.ts \
@@ -413,6 +432,7 @@ pnpm run lz:sdk:evm:send-forwarding \
 ```
 
 ### NativeOFTAdapter
+
 ```bash
 pnpm run lz:sdk:evm:send-evm-native \
   --oapp-config move.layerzero.config.ts \
@@ -424,6 +444,7 @@ pnpm run lz:sdk:evm:send-evm-native \
 ```
 
 Send native token from EVM to Initia via IBC
+
 ```bash
 pnpm run lz:sdk:evm:send-native-forwarding \
   --oapp-config move.layerzero.config.ts \
@@ -436,6 +457,7 @@ pnpm run lz:sdk:evm:send-native-forwarding \
 ```
 
 Send native token from EVM to Initia via OPBridge
+
 ```bash
 pnpm run lz:sdk:evm:send-native-forwarding \
   --oapp-config move.layerzero.config.ts \
@@ -453,9 +475,9 @@ pnpm run lz:sdk:evm:send-native-forwarding \
 pnpm run lz:sdk:help
 ```
 
-## Validating object ownership of your deployed Initia OApp:
+## Validating object ownership of your deployed Initia OApp
 
-Go to: https://scan.testnet.initia.xyz/initiation-2/interact?address=0x1&moduleName=object&functionType=view&functionName=owner (use mainnet equivalent contract for mainnet)
+Go to: <https://scan.testnet.initia.xyz/initiation-2/interact?address=0x1&moduleName=object&functionType=view&functionName=owner> (use mainnet equivalent contract for mainnet)
 
 Fill in the text boxes as follows:
 For TO: 0x1::Object::ObjectCore
