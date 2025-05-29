@@ -31,6 +31,7 @@
     "lz:sdk:move:permanently-disable-blocklist": "ts-node scripts/cli.ts --vm move --op permanently-disable-blocklist",
     "lz:sdk:move:permanently-disable-freezing": "ts-node scripts/cli.ts --vm move --op permanently-disable-freezing",
     "lz:sdk:move:quote-send-move-oft": "ts-node scripts/cli.ts --vm move --op quote-send-move-oft",
+    "lz:sdk:move:register-oft-metadata-on-forwarding": "ts-node scripts/cli.ts --vm move --op register-oft-metadata-on-forwarding",
     "lz:sdk:move:send-from-move-oft": "ts-node scripts/cli.ts --vm move --op send-from-move-oft",
     "lz:sdk:move:set-delegate": "ts-node scripts/cli.ts --vm move --op set-delegate",
     "lz:sdk:move:set-fee": "ts-node scripts/cli.ts --vm move --op set-fee",
