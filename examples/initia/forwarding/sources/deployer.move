@@ -8,54 +8,59 @@ module deployer::deployer {
     use std::option;
 
     struct DeployerStore has key, drop {
-        nonce: u64,
-    }
-
-    struct ForwardingTempStore has key {
-        admin: address,
-        extend_ref: object::ExtendRef,
+        extend_ref: option::Option<object::ExtendRef>,
+        nonce: u64
     }
 
     fun init_module(account: &signer) {
-        move_to(account, DeployerStore {
-            extend_ref: option::none(),
-            nonce: 0,
-        });
+        move_to(
+            account,
+            DeployerStore { extend_ref: option::none(), nonce: 0 }
+        );
     }
 
     public entry fun deploy_forwarding(
-        account: &signer,
-        admin: address,
-        code: vector<vector<u8>>,
-    ) acquires DeployerStore, ForwardingTempStore {
-        assert!(signer::address_of(account) == @deployer, error::permission_denied(EINVALID_DEPLOYER_ACCOUNT));
+        account: &signer, code: vector<vector<u8>>
+    ) acquires DeployerStore {
+        assert!(
+            signer::address_of(account) == @deployer,
+            error::permission_denied(EINVALID_DEPLOYER_ACCOUNT)
+        );
 
         let deployer_store = deployer_store_mut();
 
-        let constructor_ref = object::create_named_object(account, forwarding_seed(deployer_store.nonce));
+        let constructor_ref =
+            object::create_named_object(account, forwarding_seed(deployer_store.nonce));
         let extend_ref = option::some(object::generate_extend_ref(&constructor_ref));
 
+        deployer_store.extend_ref = extend_ref;
         deployer_store.nonce = deployer_store.nonce + 1;
-        let temp_store = ForwardingTempStore {
-            admin: admin,
-            extend_ref: extend_ref,
-        };
 
-        let forwarding_signer = object::generate_signer_for_extending(option::borrow(&temp_store.extend_ref));
-        move_to(&forwarding_signer, temp_store);
-
+        let forwarding_signer =
+            object::generate_signer_for_extending(
+                option::borrow(&deployer_store.extend_ref)
+            );
         code::publish_v2(&forwarding_signer, code, 1);
     }
 
-    public fun claim_temp_store(forwarding_signer: &signer): (address, object::ExtendRef) acquires ForwardingTempStore {
-        let ForwardingTempStore { admin, extend_ref } = move_from<ForwardingTempStore>(signer::address_of(forwarding_signer));
-        (admin, extend_ref)
+    public fun claim_extend_ref(account: &signer): object::ExtendRef acquires DeployerStore {
+        assert!(
+            signer::address_of(account) == forwarding_addr(deployer_store().nonce - 1),
+            error::permission_denied(EINVALID_FORWARDING_ACCOUNT)
+        );
+        let deployer_store = deployer_store_mut();
+        option::extract(&mut deployer_store.extend_ref)
     }
 
     // ==================================================== Helper ====================================================
 
-    inline fun deployer_store(): &DeployerStore { borrow_global(@deployer) }
-    inline fun deployer_store_mut(): &mut DeployerStore { borrow_global_mut(@deployer) }
+    inline fun deployer_store(): &DeployerStore {
+        borrow_global(@deployer)
+    }
+
+    inline fun deployer_store_mut(): &mut DeployerStore {
+        borrow_global_mut(@deployer)
+    }
 
     inline fun forwarding_seed(nonce: u64): vector<u8> {
         let seed = b"forwarding";

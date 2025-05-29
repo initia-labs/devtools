@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 
 import { AccAddress, bcs } from '@initia/initia.js'
+import { BooleanOptionalAction } from 'argparse'
 import { ethers } from 'ethers'
 import { SHA3 } from 'sha3'
 
@@ -19,7 +20,16 @@ class ForwardingDeployOperation implements INewOperation {
     operation = 'deploy-forwarding'
     description = 'Deploy the forwarding contract'
     reqArgs = ['oapp_config']
-    addArgs = []
+    addArgs = [
+        {
+            name: '--upgrade-forwarding',
+            arg: {
+                help: 'Upgrade the forwarding contract',
+                action: BooleanOptionalAction,
+                required: false,
+            },
+        },
+    ]
 
     async impl(args: any): Promise<void> {
         const taskContext = await initializeDeployTaskContext(args.oapp_config)
@@ -44,20 +54,26 @@ class ForwardingDeployOperation implements INewOperation {
 
         const forwardingExists = await checkIfDeploymentExists(taskContext.chain, taskContext.stage, 'Forwarding')
         if (forwardingExists) {
-            console.log('\n🎯 Skipping deploy - forwarding contractalready exists')
+            if (!args.upgrade_forwarding) {
+                console.log('\n🎯 Skipping deploy - forwarding contract already exists')
+                return
+            }
+
+            console.log('\n🚀 Upgrading forwarding contract')
+            await upgradeForwarding(args, named_addresses)
             return
         }
 
-        const deployerAddr = (await loadDeployerAddr()).trim()
-        let nonce = 0
-
+        const deployerAddr = getInitiaAccountAddress()
         const deployerExists = await checkDeployerContractExist(deployerAddr)
+
+        let nonce = 0
         if (deployerExists) {
             nonce = await loadNonce(deployerAddr)
         }
-        const forwardingAddr = computeForwardingAddr(AccAddress.toBuffer(deployerAddr), nonce)
 
-        await buildContracts(deployerAddr, nonce, forwardingAddr, named_addresses)
+        const forwardingAddr = computeForwardingAddr(AccAddress.toBuffer(deployerAddr), nonce)
+        await buildContracts(deployerAddr, forwardingAddr, named_addresses)
         if (!deployerExists) {
             console.log('\n🚀 Deploying deployer contract')
             await deployDeployer()
@@ -84,8 +100,6 @@ export { NewOperation }
 async function deployForwarding() {
     const userAccountName = getInitiaKeyName()
     const userAccountAddress = getInitiaAccountAddress()
-    const deployerAddr = (await loadDeployerAddr()).trim()
-
     const forwardingBytecode = fs.readFileSync(
         `${process.cwd()}/forwarding/build/forwarding/bytecode_modules/forwarding.mv`,
         'binary'
@@ -97,10 +111,10 @@ async function deployForwarding() {
         'tx',
         'move',
         'execute-json',
-        AccAddress.toHex(deployerAddr),
+        AccAddress.toHex(userAccountAddress),
         'deployer',
         'deploy_forwarding',
-        `--args=["${userAccountAddress}",["${forwardingBytecodeHex}"]]`,
+        `--args=[["${forwardingBytecodeHex}"]]`,
         `--node=${process.env.INITIA_RPC_URL}`,
         `--from=${userAccountName}`,
         '--gas-prices=0.015uinit',
@@ -210,12 +224,7 @@ async function deployDeployer() {
     })
 }
 
-async function buildContracts(
-    deployerAddr: string,
-    nonce: number,
-    forwardingAddr: string,
-    named_addresses: string
-): Promise<void> {
+async function buildContracts(deployerAddr: string, forwardingAddr: string, named_addresses: string): Promise<void> {
     let stdOut = ''
     let stdErr = ''
 
@@ -294,52 +303,6 @@ function getInitiaAccountAddress() {
         )
     }
     return process.env.INITIA_ACCOUNT_ADDRESS
-}
-
-function loadDeployerAddr(): Promise<string> {
-    const userAccountName = getInitiaKeyName()
-
-    let stdOut = ''
-    let stdErr = ''
-    const cmd = 'initiad'
-    const args = ['keys', 'show', userAccountName, '--keyring-backend=test', '--address']
-
-    return new Promise<string>((resolve, reject) => {
-        const childProcess = spawn(cmd, args, {
-            stdio: ['inherit', 'pipe', 'pipe'], // Inherit stdin, pipe stdout and stderr
-        })
-
-        // Capture stdout which contains our deployed address
-        childProcess.stdout?.on('data', (data) => {
-            const dataStr = data.toString()
-            stdOut += dataStr
-            process.stdout.write(`${dataStr}`)
-        })
-
-        // Capture stderr (this is actually NOT the error output but the interactive prompt)
-        childProcess.stderr?.on('data', (data) => {
-            const dataStr = data.toString()
-            stdErr += dataStr
-            process.stderr.write(`${dataStr}`)
-        })
-
-        // Handle process close
-        childProcess.on('close', (code) => {
-            if (code === 0) {
-                resolve(stdOut)
-            } else {
-                console.error(`Command failed with code ${code}`)
-                console.error('Captured stderr:', stdErr)
-                reject(new Error(`Process exited with code ${code}`))
-            }
-        })
-
-        // Handle errors
-        childProcess.on('error', (err) => {
-            console.error('Error spawning the process:', err)
-            reject(err)
-        })
-    })
 }
 
 async function createDeployment(deployedAddress: string, file_name: string, network: string, lzNetworkStage: string) {
@@ -453,6 +416,90 @@ async function checkDeployerContractExist(deployerAddr: string): Promise<boolean
                     console.error('Captured stderr:', stdErr)
                     reject(new Error(`Process exited with code ${code}`))
                 }
+            }
+        })
+
+        // Handle errors
+        childProcess.on('error', (err) => {
+            console.error('Error spawning the process:', err)
+            reject(err)
+        })
+    })
+}
+
+export async function getDeploymentAddress(network: string, lzNetworkStage: string, contractName: string) {
+    const initiaDir = path.join(process.cwd(), 'deployments', `${network}-${lzNetworkStage}`)
+    const deploymentPath = path.join(initiaDir, `${contractName}.json`)
+    const deploymentData = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'))
+    return deploymentData.address
+}
+
+async function upgradeForwarding(args: any, named_addresses: string) {
+    const taskContext = await initializeDeployTaskContext(args.oapp_config)
+    const forwardingExists = await checkIfDeploymentExists(taskContext.chain, taskContext.stage, 'Forwarding')
+    if (!forwardingExists) {
+        throw new Error('Deployment for Forwarding contract does not exist. Please deploy the contract first.')
+    }
+
+    const deployerAddr = getInitiaAccountAddress()
+    const forwardingAddr = await getDeploymentAddress(taskContext.chain, taskContext.stage, 'Forwarding')
+    await buildContracts(deployerAddr, forwardingAddr, named_addresses)
+
+    const userAccountName = getInitiaKeyName()
+    const forwardingBytecode = fs.readFileSync(
+        `${process.cwd()}/forwarding/build/forwarding/bytecode_modules/forwarding.mv`,
+        'binary'
+    )
+    const forwardingBytecodeHex = Buffer.from(forwardingBytecode, 'binary').toString('hex')
+
+    const cmd = 'initiad'
+    const executeArgs = [
+        'tx',
+        'move',
+        'execute-json',
+        forwardingAddr,
+        'forwarding',
+        'upgrade',
+        `--args=[["${forwardingBytecodeHex}"]]`,
+        `--node=${process.env.INITIA_RPC_URL}`,
+        `--from=${userAccountName}`,
+        '--gas-prices=0.015uinit',
+        '--gas-adjustment=1.4',
+        `--chain-id=${process.env.INITIA_CHAIN_ID}`,
+        '--gas=auto',
+        '--keyring-backend=test',
+        '-y',
+    ]
+
+    let stdOut = ''
+    let stdErr = ''
+    return new Promise<void>((resolve, reject) => {
+        const childProcess = spawn(cmd, executeArgs, {
+            stdio: ['inherit', 'pipe', 'pipe'], // Inherit stdin, pipe stdout and stderr
+        })
+
+        // Capture stdout which contains our deployed address
+        childProcess.stdout?.on('data', (data) => {
+            const dataStr = data.toString()
+            stdOut += dataStr
+            process.stdout.write(`${dataStr}`)
+        })
+
+        // Capture stderr (this is actually NOT the error output but the interactive prompt)
+        childProcess.stderr?.on('data', (data) => {
+            const dataStr = data.toString()
+            stdErr += dataStr
+            process.stderr.write(`${dataStr}`)
+        })
+
+        // Handle process close
+        childProcess.on('close', (code) => {
+            if (code === 0) {
+                resolve()
+            } else {
+                console.error(`Command failed with code ${code}`)
+                console.error('Captured stderr:', stdErr)
+                reject(new Error(`Process exited with code ${code}`))
             }
         })
 
