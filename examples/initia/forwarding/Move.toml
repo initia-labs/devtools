@@ -6,7 +6,6 @@ authors = []
 [addresses]
 deployer = "_"
 forwarding = "_"
-oft = "_"
 
 # refer packages/devtools-move/tasks/move/utils/deploymentAddresses.json
 worker_peripherals = "_"
@@ -45,4 +44,3 @@ subdir = "initia_stdlib"
 endpoint_v2_common = { git = "https://github.com/LayerZero-Labs/LayerZero-v2", rev = "372abacbf09a8b2a972785bc69c8fcbeea77141f", subdir = "packages/layerzero-v2/initia/contracts/endpoint_v2_common" }
 endpoint_v2 = { git = "https://github.com/LayerZero-Labs/LayerZero-v2", rev = "372abacbf09a8b2a972785bc69c8fcbeea77141f", subdir = "packages/layerzero-v2/initia/contracts/endpoint_v2" }
 oft_common = { git = "https://github.com/LayerZero-Labs/LayerZero-v2", rev = "372abacbf09a8b2a972785bc69c8fcbeea77141f", subdir = "packages/layerzero-v2/initia/contracts/oapps/oft_common" }
-oft = { local = "../move-oft"}

@@ -57,13 +57,7 @@ class ForwardingDeployOperation implements INewOperation {
         }
         const forwardingAddr = computeForwardingAddr(AccAddress.toBuffer(deployerAddr), nonce)
 
-        const oftAddress = await getDeployedOFTAddress(
-            taskContext.chain,
-            taskContext.stage,
-            taskContext.selectedContract.contract.contractName ?? ''
-        )
-
-        await buildContracts(deployerAddr, nonce, forwardingAddr, named_addresses + `,oft=${oftAddress}`)
+        await buildContracts(deployerAddr, nonce, forwardingAddr, named_addresses)
         if (!deployerExists) {
             console.log('\n🚀 Deploying deployer contract')
             await deployDeployer()
@@ -89,6 +83,7 @@ export { NewOperation }
 
 async function deployForwarding() {
     const userAccountName = getInitiaKeyName()
+    const userAccountAddress = getInitiaAccountAddress()
     const deployerAddr = (await loadDeployerAddr()).trim()
 
     const forwardingBytecode = fs.readFileSync(
@@ -105,7 +100,7 @@ async function deployForwarding() {
         AccAddress.toHex(deployerAddr),
         'deployer',
         'deploy_forwarding',
-        `--args=[["${forwardingBytecodeHex}"]]`,
+        `--args=["${userAccountAddress}",["${forwardingBytecodeHex}"]]`,
         `--node=${process.env.INITIA_RPC_URL}`,
         `--from=${userAccountName}`,
         '--gas-prices=0.015uinit',
@@ -272,13 +267,6 @@ async function checkIfDeploymentExists(network: string, lzNetworkStage: string, 
     return fs.existsSync(path.join(initiaDir, `${contractName}.json`))
 }
 
-async function getDeployedOFTAddress(network: string, lzNetworkStage: string, contractName: string) {
-    const initiaDir = path.join(process.cwd(), 'deployments', `${network}-${lzNetworkStage}`)
-    const deploymentPath = path.join(initiaDir, `${contractName}.json`)
-    const deploymentData = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'))
-    return deploymentData.address
-}
-
 function computeForwardingAddr(deployerAddr: ethers.BytesLike, nonce: number): string {
     if (deployerAddr.length < 32) {
         deployerAddr = ethers.utils.concat([new Uint8Array(32 - deployerAddr.length), deployerAddr])
@@ -297,6 +285,15 @@ function getInitiaKeyName() {
         throw new Error('INITIA_KEY_NAME is not set.\n\nPlease set the INITIA_KEY_NAME environment variable.')
     }
     return process.env.INITIA_KEY_NAME
+}
+
+function getInitiaAccountAddress() {
+    if (!process.env.INITIA_ACCOUNT_ADDRESS) {
+        throw new Error(
+            'INITIA_ACCOUNT_ADDRESS is not set.\n\nPlease set the INITIA_ACCOUNT_ADDRESS environment variable.'
+        )
+    }
+    return process.env.INITIA_ACCOUNT_ADDRESS
 }
 
 function loadDeployerAddr(): Promise<string> {
