@@ -1,7 +1,7 @@
 /// Forwarding contract for LayerZero OFT (Omnichain Fungible Token).
 ///
 /// This contract enables users to send OFT tokens with a compose message that specifies
-/// how the tokens should be handled at the destination. The compose message must be a 
+/// how the tokens should be handled at the destination. The compose message must be a
 /// valid JSON object containing a Cosmos message.
 ///
 /// Flow:
@@ -16,7 +16,7 @@
 /// The recovery address is specified in the compose message's "sender" field:
 /// ```json
 /// {
-///     "@type": "/initia.move.v1.MsgExecuteJSON", 
+///     "@type": "/initia.move.v1.MsgExecuteJSON",
 ///     "sender": "initia1...",  // Recovery address
 ///     "module_address": "0x1",
 ///     "module_name": "dex",
@@ -300,6 +300,26 @@ module forwarding::forwarding {
         table::remove(&mut forwarding_store.callback_info, id);
     }
 
+    // ===================================================== User actions ====================================================
+
+    public entry fun withdraw_from_intermediate(
+        account: &signer, metadata: Object<Metadata>
+    ) acquires ForwardingIntermediateStore {
+        let from_address = signer::address_of(account);
+        let intermediate_addr = intermediate_addr(from_address);
+        let intermediate_store =
+            borrow_global<ForwardingIntermediateStore>(intermediate_addr);
+        let intermediate_signer =
+            object::generate_signer_for_extending(&intermediate_store.extend_ref);
+        let amount = primary_fungible_store::balance(from_address, metadata);
+        primary_fungible_store::transfer(
+            &intermediate_signer,
+            metadata,
+            from_address,
+            amount
+        );
+    }
+
     // ===================================================== Admin actions ====================================================
 
     public entry fun set_oft_metadata(
@@ -379,7 +399,12 @@ module forwarding::forwarding {
     public fun oft_metadata_list(): (vector<address>, vector<Object<Metadata>>) acquires ForwardingStore {
         let oapp_list = vector::empty();
         let metadata_list = vector::empty();
-        let iter = table::iter(&store().oft_metadata, option::none(), option::none(), 1);
+        let iter = table::iter(
+            &store().oft_metadata,
+            option::none(),
+            option::none(),
+            1
+        );
         while (table::prepare(iter)) {
             let (key, value) = table::next(iter);
             vector::push_back(&mut oapp_list, key);
