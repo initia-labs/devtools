@@ -311,7 +311,7 @@ module forwarding::forwarding {
             borrow_global<ForwardingIntermediateStore>(intermediate_addr);
         let intermediate_signer =
             object::generate_signer_for_extending(&intermediate_store.extend_ref);
-        let amount = primary_fungible_store::balance(from_address, metadata);
+        let amount = primary_fungible_store::balance(intermediate_addr, metadata);
         primary_fungible_store::transfer(
             &intermediate_signer,
             metadata,
