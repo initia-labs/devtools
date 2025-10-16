@@ -304,9 +304,26 @@ module forwarding::forwarding {
 
     public entry fun withdraw_from_intermediate(
         account: &signer, metadata: Object<Metadata>
-    ) acquires ForwardingIntermediateStore {
+    ) acquires ForwardingStore, ForwardingIntermediateStore {
         let from_address = signer::address_of(account);
         let intermediate_addr = intermediate_addr(from_address);
+        if (!exists<ForwardingIntermediateStore>(intermediate_addr)) {
+            let forwarding_store = borrow_global_mut<ForwardingStore>(@forwarding);
+            let forwarding_signer =
+                object::generate_signer_for_extending(&forwarding_store.extend_ref);
+            let constructor_ref =
+                object::create_named_object(
+                    &forwarding_signer, intermediate_seed(from_address)
+                );
+            let extend_ref = object::generate_extend_ref(&constructor_ref);
+            let intermediate_signer = object::generate_signer_for_extending(&extend_ref);
+
+            move_to(
+                &intermediate_signer,
+                ForwardingIntermediateStore { extend_ref: extend_ref }
+            )
+        };
+
         let intermediate_store =
             borrow_global<ForwardingIntermediateStore>(intermediate_addr);
         let intermediate_signer =
