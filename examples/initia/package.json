@@ -53,7 +53,7 @@
     "@initia/builder.js": "^0.2.12",
     "@initia/initia.js": "^1.0.0",
     "@types/glob": "^8.1.0",
-    "glob": "^11.0.1",
+    "glob": "^11.1.0",
     "sha3": "^2.1.4"
   },
   "devDependencies": {
