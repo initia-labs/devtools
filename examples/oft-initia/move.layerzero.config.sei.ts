@@ -8,9 +8,9 @@ enum MsgType {
     SEND_AND_CALL = 2,
 }
 
-const ethContract: OmniPointHardhat = {
-    eid: EndpointId.ETHEREUM_V2_MAINNET,
-    contractName: 'MyOFTAdapter',
+const seiContract: OmniPointHardhat = {
+    eid: EndpointId.SEI_V2_MAINNET,
+    contractName: 'MyNativeOFTAdapter',
 }
 
 const initiaContract: OmniPointHardhat = {
@@ -21,7 +21,7 @@ const initiaContract: OmniPointHardhat = {
 const config: OAppOmniGraphHardhat = {
     contracts: [
         {
-            contract: ethContract,
+            contract: seiContract,
             config: {
                 owner: '0x4DFF76C3Eb3617b3Ce5fcdCeBEAAF432a5D5a187',
                 delegate: '0x4DFF76C3Eb3617b3Ce5fcdCeBEAAF432a5D5a187',
@@ -38,7 +38,7 @@ const config: OAppOmniGraphHardhat = {
     connections: [
         {
             from: initiaContract,
-            to: ethContract,
+            to: seiContract,
             config: {
                 enforcedOptions: [
                     {
@@ -110,7 +110,7 @@ const config: OAppOmniGraphHardhat = {
             },
         },
         {
-            from: ethContract,
+            from: seiContract,
             to: initiaContract,
             config: {
                 enforcedOptions: [
@@ -127,9 +127,9 @@ const config: OAppOmniGraphHardhat = {
                         value: 0, // msg.value in wei for EndpointV2.lzCompose
                     },
                 ],
-                sendLibrary: '0xbB2Ea70C9E858123480642Cf96acbcCE1372dCe1',
+                sendLibrary: '0xC39161c743D0307EB9BCc9FEF03eeb9Dc4802de7',
                 receiveLibraryConfig: {
-                    receiveLibrary: '0xc02Ab410f0734EFa3F14628780e6e695156024C2',
+                    receiveLibrary: '0xe1844c5D63a9543023008D332Bd3d2e6f1FE1043',
                     gracePeriod: BigInt(0),
                 },
                 // receiveLibraryTimeoutConfig: {
@@ -139,23 +139,25 @@ const config: OAppOmniGraphHardhat = {
                 sendConfig: {
                     executorConfig: {
                         maxMessageSize: 10_000,
-                        executor: '0x173272739Bd7Aa6e4e214714048a9fE699453059',
+                        executor: '0xc097ab8CD7b053326DFe9fB3E3a31a0CCe3B526f',
                     },
                     ulnConfig: {
                         confirmations: BigInt(10),
                         requiredDVNs: [
-                            '0x589dedbd617e0cbcb916a9223f4d1300c294236b',
-                            '0xa59ba433ac34d2927232918ef5b2eaafcf130ba5',
+                            '0x6788f52439aca6bff597d3eec2dc9a44b8fee842',
+                            '0x65c41255c7f49a4b728676a0ede4a1329ff6911a',
+                            '0x33051ad47157a50bb49a646256b854c60f707c86',
                         ],
                         optionalDVNThreshold: 0,
                     },
                 },
                 receiveConfig: {
                     ulnConfig: {
-                        confirmations: BigInt(2),
+                        confirmations: BigInt(10),
                         requiredDVNs: [
-                            '0x589dedbd617e0cbcb916a9223f4d1300c294236b',
-                            '0xa59ba433ac34d2927232918ef5b2eaafcf130ba5',
+                            '0x6788f52439aca6bff597d3eec2dc9a44b8fee842',
+                            '0x65c41255c7f49a4b728676a0ede4a1329ff6911a',
+                            '0x33051ad47157a50bb49a646256b854c60f707c86',
                         ],
                         optionalDVNThreshold: 0,
                     },

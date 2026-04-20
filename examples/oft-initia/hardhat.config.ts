@@ -13,6 +13,8 @@ import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types'
 
 import { EndpointId } from '@layerzerolabs/lz-definitions'
 
+import './type-extensions'
+
 // Set your preferred authentication method
 //
 // If you prefer using a mnemonic, set a MNEMONIC environment variable
@@ -55,6 +57,19 @@ const config: HardhatUserConfig = {
         'bsc-testnet': {
             eid: EndpointId.BSC_V2_TESTNET,
             url: process.env.RPC_URL_BSC_TESTNET || 'https://data-seed-prebsc-1-s1.binance.org:8545',
+            accounts,
+        },
+        'ethereum-mainnet': {
+            eid: EndpointId.ETHEREUM_V2_MAINNET,
+            url: process.env.RPC_URL_ETHEREUM_MAINNET || 'https://ethereum-rpc.publicnode.com',
+            accounts,
+            oftAdapter: {
+                tokenAddress: '0xf9bF4b8Bd40bc82269841769350C8eeeb7184759', // Set the token address for the OFT adapter
+            },
+        },
+        'sei-mainnet': {
+            eid: EndpointId.SEI_V2_MAINNET,
+            url: process.env.RPC_URL_SEI_MAINNET || 'https://sei-evm-rpc.publicnode.com',
             accounts,
         },
         hardhat: {

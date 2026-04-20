@@ -1,11 +1,11 @@
 import { OFTFaInitParams } from '@layerzerolabs/oft-move'
 
 const oftMetadata: OFTFaInitParams = {
-    token_name: 'MyOFT',
-    token_symbol: 'MOFT',
+    token_name: 'Cavro ETH',
+    token_symbol: 'roETH',
     icon_uri: '',
     project_uri: '',
-    localDecimals: 8,
+    localDecimals: 6,
 }
 
 export default oftMetadata
