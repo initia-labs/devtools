@@ -18,7 +18,7 @@
     "test:jest": "jest --ci --runInBand --forceExit"
   },
   "devDependencies": {
-    "@babel/core": "^7.23.9",
+    "@babel/core": "^7.29.6",
     "@layerzerolabs/export-deployments": "~0.0.16",
     "@layerzerolabs/io-devtools": "~0.3.0",
     "@layerzerolabs/test-setup-devtools-evm-hardhat": "~9.0.0",

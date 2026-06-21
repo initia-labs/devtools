@@ -50,7 +50,7 @@
     "jest": "^29.7.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.23.9",
+    "@babel/core": "^7.29.6",
     "@coral-xyz/anchor": "^0.31.1",
     "@layerzerolabs/eslint-config-next": "~2.3.39",
     "@layerzerolabs/lz-definitions": "^3.0.148",
