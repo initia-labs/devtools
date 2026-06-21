@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@aptos-labs/ts-sdk": "^1.33.1",
-    "@babel/core": "^7.23.9",
+    "@babel/core": "^7.29.6",
     "@jest/globals": "^29.7.0",
     "@layerzerolabs/devtools-evm-hardhat": "^4.0.4",
     "@layerzerolabs/devtools-extensible-cli": "^0.0.7",

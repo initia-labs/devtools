@@ -21,7 +21,7 @@
     "hardhat-deploy": "^0.12.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.23.9",
+    "@babel/core": "^7.29.6",
     "@layerzerolabs/devtools-evm-hardhat": "^4.0.4",
     "@layerzerolabs/eslint-config-next": "~2.3.39",
     "@layerzerolabs/io-devtools": "~0.3.2",
